@@ -54,6 +54,25 @@ describe 'POST /v1/add-pre-chain' do
 		"+GRnXEL/CSAQ+2TaHB5QjoTZu5V9cKQe"
 	end
 
+	let(:root) do
+		"MIIC3DCCAcSgAwIBAgIQSPPkaZnTTCGUyCo6cNM2XDANBgkqhkiG9w0BAQsFADAY" +
+		"MRYwFAYDVQQDDA1EdW1teSBSb290IENBMCAXDTE0MDcwNjAzMDQ0OFoYDzIxMTQw" +
+		"NzE3MDMwNDQ4WjAYMRYwFAYDVQQDDA1EdW1teSBSb290IENBMIIBIjANBgkqhkiG" +
+		"9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuABM8vmg/M5aUNV3iX65lu8zE3YitMhvITMV" +
+		"C/u0fHmXmbyTMIv8OSbOwZPENtQ+i3TEowrIyMAI+sjvx3EyZ4UaTtV5ONReNhdl" +
+		"LHq7ppoY007/hYc63EYak1BJ9i9hanulmf6+5VycIbYQfMLhHcSZGS3yIMziOaPX" +
+		"QurTKVWEGuywpk8lWlcjaEhtkza6NRnGTUJvbqXwx06bMuB//QVDnmtgi0GQwL8M" +
+		"VEyxdRPGRFa0aFnIfHJtrdBNKScrAVQPecVGCC4mRUrm+ej0g7/ujJ/hErokq2Wi" +
+		"pVDAx6++s/BnovsQ5TXvF2OJFAslqgJl3JVDzXCgrYjwHrxwlQIDAQABoyAwHjAL" +
+		"BgNVHQ8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEA" +
+		"Gn0bTIQGbODUlNKWd3Y2GNOlkm4ExmibUKyjNJtaOaPMZvThXFH30Xn52OaU5c8f" +
+		"w4/RvSCdj1CZOtdo7g1xORYOt14ylfQ8YErxw/pcxmqKC3VovZvF2HO9ZgW3PFxD" +
+		"Fh7/+RgM0MV9vHuQbzQMOzl0PDac9ZGPvgc0QA/IBFtZlytT+3OwkdpOdQSjyrCz" +
+		"RZy37LPph7TVfb1nklVmuWpxJS6G0TjiUVxLGwp3BwNerg0ZKxx3+5Swi6iRSHF1" +
+		"9k+GeMCUidTtbYzuI+9MWR+kk1qCHdE3UOiXBrEnarOool+HZV6J39yHEtblc8ap" +
+		"rRstJo1i9FLVDzQ6i8pIJA=="
+	end
+
 	after(:each) do
 		Dir["#{APP_ROOT}/spec/datasets/queue/*.json"].each { |f| File.unlink(f) }
 	end
@@ -112,8 +131,8 @@ describe 'POST /v1/add-pre-chain' do
 				      0                          # extensions length
 				     ].pack("CCNNnnCa*n")
 
-				v = pubkey.verify(OpenSSL::Digest::SHA256.new, sig, ct)
-				expect(v).to be(true)
+				expect(pubkey.verify(OpenSSL::Digest::SHA256.new, sig, ct)).
+				  to eq(true)
 			end
 		end
 
@@ -123,11 +142,11 @@ describe 'POST /v1/add-pre-chain' do
 					JSON.parse(File.read(f))
 				end
 			end
-			
+
 			it "only has one entry" do
 				expect(qents.length).to eq(1)
 			end
-			
+
 			it "puts the same SCT in the queue as we sent back" do
 				response
 
@@ -140,10 +159,7 @@ describe 'POST /v1/add-pre-chain' do
 
 			it "has the right chain" do
 				expect(qents[0]['chain']).
-				  to eq(["3NGuqEULnuSBpWOPYfvn0Ufzo/fsplGMrZmyW480oxI=",
-				         "+NjzNHvI6diT5gF66jxKxPklpMEQFT9h93hlToajcno="
-				        ]
-				       )
+				  to eq([inter, root])
 			end
 		end
 	end

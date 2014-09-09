@@ -16,7 +16,7 @@ class String
 	def unhex
 		self.scan(/../).map { |c| c.to_i(16).chr }.join
 	end
-	
+
 	def pad(len, c=" ")
 		self.replace(self.to_s + c * (len-self.length))
 	end

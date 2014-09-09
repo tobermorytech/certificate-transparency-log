@@ -1,41 +1,45 @@
 # Yet another structure... this time, for the CT PreCert.
 #
 class CertificateTransparency::PreCert
-	attr_reader :issuer_key_hash, :tbs_certificate, :encode
+	attr_reader :issuer_key_hash, :tbs_certificate
 
-	def initialize(opts)
-		if opts.keys == [:blob]
-			@encode = opts[:blob]
+	def self.from_blob(blob)
+		@issuer_key_hash, rest = blob.unpack("a32a*")
 
-			@issuer_key_hash,
-			  @tbs_certificate = opts[:blob].unpack("a32nCa*")
+		tbscert, rest = TLS::Opaque.from_blob(rest, 2**24-1)
 
-			@tbs_certificate = TLS::Opaque.new(2**24-1, :blob => @tbs_certificate).value
-		elsif opts.keys.sort == [:issuer_key_hash, :tbs_certificate].sort
-			unless opts[:issuer_key_hash].is_a? String
-				raise ArgumentError,
-				      ":issuer_key_hash must be a String"
-			end
+		@tbs_certificate = tbscert.value
 
-			if opts[:issuer_key_hash].length != 32
-				raise ArgumentError,
-				      ":issuer_key_hash must be 32 octets"
-			end
-
-			unless opts[:tbs_certificate].is_a? String
-				raise ArgumentError,
-				      ":tbs_certificate must be a String"
-			end
-
-			@issuer_key_hash = opts[:issuer_key_hash]
-			@tbs_certificate = opts[:tbs_certificate]
-
-			@encode = [opts[:issuer_key_hash],
-			           TLS::Opaque.new(2**24-1, :value => opts[:tbs_certificate]).encode
-			          ].pack("a32a*")
-		else
+		unless rest == ""
 			raise ArgumentError,
-			      "Must pass either :blob or :issuer_key_hash/:tbs_certificate (you gave me #{opts.keys})"
+			      "Garbage at end of blob"
 		end
+	end
+
+	def initialize
+		yield self if block_given?
+	end
+
+	def issuer_key_hash=(v)
+		unless v.is_a? String and v.length == 32
+			raise ArgumentError,
+			      "issuer_key_hash must be a 32 character string"
+		end
+
+		@issuer_key_hash = v
+	end
+
+	def tbs_certificate=(v)
+		unless v.is_a? String
+			raise ArgumentError,
+			      "tbs_certificate must be a String"
+		end
+		@tbs_certificate = v
+	end
+
+	def to_blob
+		[@issuer_key_hash,
+		 TLS::Opaque.new(@tbs_certificate, 2**16-1).to_blob
+		].pack("a32a*")
 	end
 end

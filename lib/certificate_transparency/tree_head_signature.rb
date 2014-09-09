@@ -41,11 +41,11 @@ class CertificateTransparency::TreeHeadSignature
 		@signature_type = ::CertificateTransparency::SignatureType[:tree_hash]
 
 		case blob_or_opts
-			when String then decode_blob(blob_or_opts)
-			when Hash then set_elements(blob_or_opts)
-			else
-				raise ArgumentError,
-				      "Unknown type given to #initialize (you gave me a #{blob_or_opts.class}, but I want either a String or a Hash"
+		when String then decode_blob(blob_or_opts)
+		when Hash then set_elements(blob_or_opts)
+		else
+			raise ArgumentError,
+			      "Unknown type given to #initialize (you gave me a #{blob_or_opts.class}, but I want either a String or a Hash"
 		end
 	end
 

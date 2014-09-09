@@ -1,64 +1,79 @@
-# Create a new MerkleTreeLeaf structure
+# An RFC6962 MerkleTreeLeaf structure
 #
-# You can create an MTL either by passing in an encoded "blob" of text to
-# decode, or by passing in a TimestampedEntry object:
-#
-#    CertificateTransparency::MerkleTreeLeaf.new(
-#      :blob => "<big blob o' stuff>"
-#    )
-#
-# or
-#
-#    CertificateTransparency::MerkleTreeLeaf.new(
-#      :timestamped_entry => some_object
-#    )
+# Use ::from_blob(blob) if you have an encoded MTL you wish to decode, or
+# else create a new instance, pass in a `TimestampedEntry` object via
+# `#timestamped_entry=`, and then call `#to_blob` to get the encoded MTL.
 #
 class CertificateTransparency::MerkleTreeLeaf
-	attr_reader :encode, :timestamped_entry, :version
+	attr_reader :timestamped_entry
 
-	def initialize(opts)
-		unless opts.is_a? Hash
-			raise ArgumentError,
-			      "Must pass a hash of options"
+	# Return a new MerkleTreeLeaf instance, from a binary blob of data.
+	# Raises an ArgumentError if the blob is invalid in some way.
+	def self.from_blob(blob)
+		self.new do |mtl|
+			mtl.version, leaf_type, te = blob.unpack("CCa*")
+			unless leaf_type == ::CertificateTransparency::MerkleLeafType[:timestamped_entry]
+				raise ArgumentError,
+				      "Unknown leaf type in blob"
+			end
+
+			mtl.timestamped_entry =
+			     ::CertificateTransparency::TimestampedEntry.from_blob(te)
 		end
-
-		if opts.keys == [:blob]
-			@encode = opts[:blob]
-			_decode
-		elsif opts.keys == [:timestamped_entry]
-			@timestamped_entry = opts[:timestamped_entry]
-			_encode
-		else
-			raise ArgumentError,
-			      "Invalid invocation: you must pass exactly one of :blob or :timestamped_entry (You gave me #{opts.keys.inspect})"
-		end
-
-		@version = :v1
 	end
 
-	private
-	def _encode
-		@encode = [::CertificateTransparency::Version[:v1],
-		           ::CertificateTransparency::MerkleLeafType[:timestamped_entry],
-		           @timestamped_entry.encode
-		          ].pack("CCa*")
+	# Instantiate a new MerkleTreeLeaf.
+	#
+	# You can't set parameters as arguments, but if you pass a block,
+	# the newly-created MTL instance will be yielded to it, so you can
+	# do:
+	#
+	#     MerkleTreeLeaf.new { |mtl| mtl.timestamped_entry = te }.to_blob
+	#
+	# For all your one-liner goodness.
+	#
+	def initialize
+		@version   = ::CertificateTransparency::Version[:v1]
+		@leaf_type = ::CertificateTransparency::MerkleLeafType[:timestamped_entry]
+
+		yield self if block_given?
 	end
 
-	def _decode
-		version, leaf_type, te = @encode.unpack("CCa*")
-
-		if version != ::CertificateTransparency::Version[:v1]
+	# Set the version of the MerkleTreeLeaf structure to create.  At present,
+	# only `:v1` is supported, so there isn't much point in ever calling this
+	# method.
+	def version=(v)
+		unless v == :v1 or v == ::CertificateTransparency::Version[:v1]
 			raise ArgumentError,
-			      "Unknown structure version: #{version}"
+			      "Invalid version.  We only know about :v1"
+		end
+	end
+
+	# Return a symbol indicating the version of the MerkleTreeLeaf structure
+	# represented by this object.  At present, only `:v1` is supported.
+	def version
+		:v1
+	end
+
+	# Set the TimestampedEntry element for this MerkleTreeLeaf.  It must be
+	# an instance of CertificateTransparency::TimestampedEntry, or an
+	# ArgumentError will be raised.
+	def timestamped_entry=(te)
+		unless te.is_a? ::CertificateTransparency::TimestampedEntry
+			raise ArgumentError,
+			      "Wasn't passed a TimestampedEntry (got a #{te.class})"
 		end
 
-		if leaf_type != ::CertificateTransparency::MerkleLeafType[:timestamped_entry]
-			raise ArgumentError,
-			      "Unknown MerkleLeafType: #{leaf_type}"
+		@timestamped_entry = te
+	end
+
+	# Generate a binary blob representing this MerkleTreeLeaf structure.
+	def to_blob
+		if @timestamped_entry.nil?
+			raise RuntimeError,
+			      "timestamped_entry has not been set"
 		end
 
-		@timestamped_entry = ::CertificateTransparency::TimestampedEntry.new(
-		                         :blob => te
-		                       )
+		[@version, @leaf_type, @timestamped_entry.to_blob].pack("CCa*")
 	end
 end

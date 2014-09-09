@@ -76,7 +76,7 @@ class CertificateTransparency::DAI
 		end
 		id
 	end
-	
+
 	# Retrieve the SCT for a specified "signed entry", if one exists,
 	# or return nil
 	def sct(signed_entry)
@@ -118,7 +118,7 @@ class CertificateTransparency::DAI
 				@prev_length   = db["prev_tree_size"].to_i
 				@expiry_time   = db["expiry_time"].to_i
 				@rollover_time = db["rollover_time"].to_i
-				
+
 				# Clear caches
 				@roots = nil
 				@json_roots = nil
@@ -135,13 +135,13 @@ class CertificateTransparency::DAI
 
 		Time.now.to_i > @expiry_time
 	end
-	
+
 	def in_db
 		unless block_given?
 			raise ArgumentError,
 			      "Must pass a block to #in_db"
 		end
-		
+
 		begin
 			GDBM.open(@dbfile, 0600, GDBM::READER) { |db| yield db }
 		rescue Errno::EAGAIN

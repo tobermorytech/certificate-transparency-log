@@ -1,128 +1,135 @@
-# Encode or parse an RFC6962 TimestampedEntry struct
+# An RFC6962 TimestampedEntry structure
 #
-# You can create an instance of `TimestampedEntry` in two different
-# ways, corresponding to "encoding" and "decoding" a struct.
-#
-# To decode a binary blob into its component parts, pass in the blob, then you
-# can read out the various fields:
-#
-#    te = CertificateTransparency::TimestampedEntry.new(:blob => "<binary>")
-#    te.timestamp       # gives you back a Time object
-#
-#    te.entry_type      # gives you back :x509_entry or :precert_entry
-#
-#    te.signed_entry    # gives you back either a string
-#                       # (for te.entry_type == :x509_entry)
-#                       # or a CertificateTransparency::PreCert object
-#                       # (for te.entry_type == :precert_entry)
-#
-#    te.x509_entry      # Gives back a string or nil
-#
-#    te.precert_entry   # Gives back a CT::PreCert or nil
-#
-# Conversely, you can create a struct from its parts, and then encode it:
-#
-#    CertificateTransparency::TimestampedEntry.new(
-#      :timestamp  => <Time or BigNum>,
-#      :x509_entry => <String>
-#    ).encode
-#
-# or
-#
-#    CertificateTransparency::TimestampedEntry.new(
-#      :timestamp     => <Time or BigNum>,
-#      :precert_entry => <String>
-#    ).encode
-#
-# Any ugliness in the arguments you pass to the constructor
-# will result in a usefully descriptive `ArgumentError` being thrown.
-# If the constructor passes, then you won't get any other errors
-# (except generic things like `NoMethodError`)
+# Use ::from_blob(blob) if you have an encoded TE you wish to decode,
+# or create a new instance, set the various parameters, and use `#to_blob`
+# to give you an encoded structure you can put over the wire.  The various
+# elements of the TE struct are available via accessors.
 #
 class CertificateTransparency::TimestampedEntry
-	attr_reader :encode, :timestamp, :entry_type, :x509_entry, :precert_entry,
-	            :signed_entry
+	# An instance of Time representing the timestamp of this entry
+	attr_reader :timestamp
 
-	def initialize(opts)
-		if opts.keys == [:blob]
-			@encode = opts[:blob]
-			_decode
-		elsif opts.keys.include?(:timestamp) and
-		      (opts.keys.include?(:x509_entry) or
-		        opts.keys.include?(:precert_entry)
-		      )
-			_encode(opts)
-		else
-			raise ArgumentError,
-			      "Unknown set of options passed (must pass either :blob, or :timestamp and exactly one of :x509_entry or :precert_entry)"
-		end
-	end
+	# The type of entry we've got here.  Is a symbol, either
+	# :x509_entry or :precert_entry.
+	attr_reader :entry_type
 
-	private
-	def _decode
-		ts_hi, ts_lo, entry_type, rest = @encode.unpack("NNna*")
+	# An OpenSSL::X509::Certificate instance, if `entry_type == :x509_entry`,
+	# or nil otherwise.
+	attr_reader :x509_entry
+
+	# An instance of ::CertificateTransparency::PreCert if `entry_type ==
+	# :precert_entry`, or nil otherwise.
+	attr_reader :precert_entry
+
+	def self.from_blob(blob)
+		ts_hi, ts_lo, entry_type, rest = blob.unpack("NNna*")
 		ts = ts_hi * 2**32 + ts_lo
 
-		@timestamp = Time.at(ts / 1000.0)
+		self.new do |te|
+			te.timestamp = Time.at(ts / 1000.0)
 
-		@entry_type = CertificateTransparency::LogEntryType.invert[entry_type]
-		if @entry_type.nil?
-			raise ArgumentError,
-			      "Unknown LogEntryType: #{entry_type} (corrupt TimestampedEntry?)"
-		end
-
-		if @entry_type == :x509_entry
-			se_len_hi, se_len_lo, rest = rest.unpack("nCa*")
-			se_len = se_len_hi * 256 + se_len_lo
-			@signed_entry, rest = rest.unpack("a#{se_len}a*")
-		elsif @entry_type == :precert_entry
-			# Holy fuck, can I have ASN1 back, please?  I can't just pass the
-			# PreCert part of the blob into CT::PreCert.new, because I can't
-			# parse the PreCert part out of the blob without digging *into* the
-			# PreCert part, because the only information on how long TBSCertificate
-			# is is contained *IN THE PRECERT!*
-			#
-			# I'm surprised there aren't a lot more bugs in TLS
-			# implementations, if this is how they lay out their data
-			# structures.
-			ikh, tbsc_len_hi, tbsc_len_lo, rest = rest.unpack("a32nCa*")
-			tbsc_len = tbsc_len_hi * 256 + tbsc_len_lo
-			tbsc, rest = rest.unpack("a#{tbsc_len}a*")
-			@signed_entry = ::CertificateTransparency::PreCert.new(
-			                    :issuer_key_hash => ikh,
-			                    :tbs_certificate => tbsc
-			                  )
-		end
-
-		case @entry_type
-			when :x509_entry    then @x509_entry    = @signed_entry
-			when :precert_entry then @precert_entry = @signed_entry
+			case CertificateTransparency::LogEntryType.invert[entry_type]
+			when :x509_entry
+				cert_data, rest = TLS::Opaque.from_blob(rest, 2**24-1)
+				te.x509_entry = OpenSSL::X509::Certificate.new(cert_data.value)
+			when :precert_entry
+				# Holy fuck, can I have ASN1 back, please?  I can't just pass
+				# the PreCert part of the blob into CT::PreCert.new, because I
+				# can't parse the PreCert part out of the blob without digging
+				# *into* the PreCert part, because the only information on how
+				# long TBSCertificate is is contained *IN THE PRECERT!*
+				#
+				# I'm surprised there aren't a lot more bugs in TLS
+				# implementations, if this is how they lay out their data
+				# structures.
+				ikh, tbsc_len_hi, tbsc_len_lo, rest = rest.unpack("a32nCa*")
+				tbsc_len = tbsc_len_hi * 256 + tbsc_len_lo
+				tbsc, rest = rest.unpack("a#{tbsc_len}a*")
+				te.precert_entry = ::CertificateTransparency::PreCert.new do |ctpc|
+					ctpc.issuer_key_hash = ikh
+					ctpc.tbs_certificate = tbsc
+				end
 			else
-		end
+				raise ArgumentError,
+				      "Unknown LogEntryType: #{entry_type} (corrupt TimestampedEntry?)"
+			end
 
-		ext_len, ext = rest.unpack("na*")
-		if ext_len.nil?
-			raise ArgumentError,
-			      ":blob corrupted (ended before ext_len was found)"
-		elsif ext_len != 0
-			raise ArgumentError,
-			      "I don't know how to deal with CtExtensions!"
+			exts, rest = TLS::Opaque.from_blob(rest, 2**16-1)
+			unless exts.value == ""
+				raise ArgumentError,
+				      "Non-empty extensions found (#{exts.value.inspect})"
+			end
+
+			unless rest == ""
+				raise ArgumentError,
+				      "Corrupted blob (garbage data after extensions)"
+			end
 		end
 	end
 
-	def _encode(opts)
-		signed_entry, entry_type = if opts.keys.include?(:x509_entry)
-			[TLS::Opaque.new(2**24-1, :value => opts[:x509_entry]).encode, ::CertificateTransparency::LogEntryType[:x509_entry]]
-		elsif opts.keys.include?(:precert_entry)
-			[opts[:precert_entry].encode, ::CertificateTransparency::LogEntryType[:precert_entry]]
-		else
+	# Create a new TimestampedEntry
+	#
+	# You can't pass any options into this constructor, but if you
+	# pass in a block you'll get the new instance yielded to it, so you can
+	# one-liner it anyway.
+	def initialize
+		yield self if block_given?
+	end
+
+	# Gives you whichever of `#x509_entry` or `#precert_entry` is
+	# not nil, or `nil` if both of them are `nil`.
+	def signed_entry
+		@x509_entry or @precert_entry
+	end
+
+	# Set the timestamp for this entry
+	#
+	# Must be a Time object, or something that can be bludgeoned
+	# into a Time object.
+	def timestamp=(ts)
+		unless ts.is_a? Time or ts.respond_to? :to_time
 			raise ArgumentError,
-			      "CAN'T HAPPEN: Unknown signed_entry type (report a bug, plz)"
+			      "Must pass me a Time or something that responds to :to_time"
 		end
 
-		ts = opts[:timestamp].is_a?(Time) ? (opts[:timestamp].to_f*1000).to_i : opts[:timestamp]
-		ts_hi = ts / 2**32
-		ts_lo = ts % 2**32
-		@encode = [ts_hi, ts_lo, entry_type, signed_entry, 0].pack("NNna*n")
+		@timestamp = ts.is_a?(Time) ? ts : ts.to_time
+	end
+
+	# Set the entry to be an x509_entry with the given certificate.
+	def x509_entry=(xe)
+		@x509_entry = OpenSSL::X509::Certificate.new(xe.to_s)
+		@entry_type = :x509_entry
+		@precert_entry = nil
+	end
+
+	# Set the entry to be a precert_entry with the given precert data.  You
+	# must pass in a CertificateTransparency::PreCert instance.
+	def precert_entry=(pe)
+		unless pe.is_a? ::CertificateTransparency::PreCert
+			raise ArgumentError,
+			      "I only accept PreCert instances (you gave me a #{pe.class})"
+		end
+
+		@precert_entry = pe
+		@entry_type = :precert_entry
+		@x509_entry = nil
+	end
+
+	def to_blob
+		signed_entry = if @x509_entry
+			TLS::Opaque.new(@x509_entry.to_der, 2**24-1).to_blob
+		elsif @precert_entry
+			TLS::Opaque.new(@precert_entry.to_blob, 2**24-1).to_blob
+		else
+			raise RuntimeError,
+			      "You must call #precert_entry= or #x509_entry= before calling #to_blob"
+		end
+
+		ts_hi = (@timestamp.to_f*1000).to_i / 2**32
+		ts_lo = (@timestamp.to_f*1000).to_i % 2**32
+		[ts_hi, ts_lo,
+		 CertificateTransparency::LogEntryType[entry_type],
+		 signed_entry, 0
+		].pack("NNna*n")
 	end
 end

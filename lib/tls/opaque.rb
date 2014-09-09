@@ -27,67 +27,76 @@
 # specified will result in `ArgumentError` being thrown.
 #
 class TLS::Opaque
-	attr_reader :value, :encode
+	attr_reader :value
 
-	def initialize(maxlen, opts)
+	# Parse out an opaque string from a blob, as well as returning
+	# any remaining data.  The `maxlen` parameter is required to
+	# know how many octets at the beginning of the string to read to
+	# determine the length of the opaque string.
+	#
+	# Returns a two-element array, `[TLS::Opaque, String]`, being a
+	# `TLS::Opaque` instance retrieved from the blob provided, and a `String`
+	# containing any remainder of the blob that wasn't considered part of the
+	# `TLS::Opaque`.  This second element will *always* be a string, but it
+	# may be an empty string, if the `TLS::Opaque` instance was the entire
+	# blob.
+	#
+	# This method will raise `ArgumentError` if the length encoded at the
+	# beginning of `blob` is longer than the data in `blob`, or if it is
+	# larger than `maxlen`.
+	#
+	def self.from_blob(blob, maxlen)
+		len_bytes = lenlen(maxlen)
+
+		len = blob[0..len_bytes-1].split('').inject(0) do |total, c|
+			total * 256 + c.ord
+		end
+
+		if len > maxlen
+			raise ArgumentError,
+			      "Encoded length (#{len}) is greater than maxlen (#{maxlen})"
+		end
+
+		if len > blob[len_bytes..-1].length
+			raise ArgumentError,
+			      "Encoded length (#{len}) is greater than the number of bytes available"
+		end
+
+		[TLS::Opaque.new(blob[len_bytes..(len_bytes+len-1)], maxlen),
+		 blob[(len_bytes+len)..-1]
+		]
+	end
+
+	def initialize(str, maxlen)
 		unless maxlen.is_a? Integer
 			raise ArgumentError,
 			      "maxlen must be an Integer"
 		end
 
-		@maxlen = maxlen
-
-		if opts.keys.sort == [:blob, :value].sort
+		if str.length > maxlen
 			raise ArgumentError,
-			      "You cannot specify both :value and :blob"
-		elsif opts.keys == [:blob]
-			@blob = opts[:blob]
-			_decode
-		elsif opts.keys == [:value]
-			@value = opts[:value]
-			_encode
-		else
-			raise ArgumentError,
-			      "You must pass #{self.class}#new exactly one of :value or :blob"
+			      "value given is longer than maxlen (#{maxlen})"
 		end
+
+		@maxlen = maxlen
+		@value  = str
 	end
 
-	private
-	def _encode
-		if @value.length > @maxlen
-			raise ArgumentError,
-					":value passed is longer than maxlen (#{@maxlen})"
-		end
-
+	def to_blob
 		len = value.length
 		params = []
-		lenlen.times do
+		self.class.lenlen(@maxlen).times do
 			params.unshift(len % 256)
 			len /= 256
 		end
 
 		params << value
 
-		@encode = params.pack("C#{lenlen}a*")
+		@encode = params.pack("C#{self.class.lenlen(@maxlen)}a*")
 	end
 
-	def _decode
-		if @blob.length > @maxlen + lenlen
-			raise ArgumentError,
-					":blob passed is too long (can be no more than #{@maxlen + lenlen})"
-		end
-
-		params = @blob.unpack("C#{lenlen}a*")
-		@value = params.pop
-		len = params.inject(0) { |s, c| s * 256 + c }
-
-		if @value.length != len
-			raise ArgumentError,
-					":blob appears corrupt (embedded value should be #{len} bytes, but value is #{@value.length} bytes)"
-		end
-	end
-
-	def lenlen
-		@lenlen ||= (Math.log2(@maxlen).ceil / 8.0).ceil
+	private
+	def self.lenlen(len)
+		(Math.log2(len).ceil / 8.0).ceil
 	end
 end

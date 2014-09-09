@@ -36,10 +36,10 @@ Spork.prefork do
 				                               "#{APP_ROOT}/spec/datasets/certs.gdb",
 				                               nil
 				                           ),
-						:private_key_file => "#{APP_ROOT}/spec/datasets/key.pem",
+				      :private_key_file => "#{APP_ROOT}/spec/datasets/key.pem",
 				      :queue_dir        => "#{APP_ROOT}/spec/datasets/queue",
 				      :logger           => Logger.new("/dev/null")
-					 )
+				    )
 			end
 		end
 	end

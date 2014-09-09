@@ -29,26 +29,26 @@ class CertificateTransparency::API::V1
 			# :private_key_file
 			unless @options.has_key?(:private_key_file)
 				raise ArgumentError,
-						"Mandatory argument :private_key_file not specified"
+				      "Mandatory argument :private_key_file not specified"
 			end
 
 			pkf = @options[:private_key_file]
 
 			unless File.exists?(pkf)
 				raise ArgumentError,
-						"#{pkf}: Key file does not exist"
+				      "#{pkf}: Key file does not exist"
 			end
 
 			unless File.readable?(pkf)
 				raise ArgumentError,
-						"#{pkf}: Key file is not readable"
+				      "#{pkf}: Key file is not readable"
 			end
 
 			begin
 				@key = OpenSSL::PKey::EC.new(File.read(pkf))
 			rescue OpenSSL::PKey::ECError => e
 				raise ArgumentError,
-						"#{pkf}: Failed to read key file: #{e.message}"
+				      "#{pkf}: Failed to read key file: #{e.message}"
 			end
 
 			pubkey = OpenSSL::PKey::EC.new('prime256v1')
@@ -182,14 +182,13 @@ class CertificateTransparency::API::V1
 
 		signed_entry = if @env["PATH_INFO"] == '/add-pre-chain'
 			entry_type = :precert_entry
-			tbscert = OpenSSL::ASN1.decode(eecert.to_der).value[0].to_der
-
-			issuer_key_hash = Digest::SHA256.digest(chain[0].public_key.to_der)
-
-			[issuer_key_hash, tbscert.length, tbscert].pack("a*na*")
+			::CertificateTransparency::PreCert.new do |ctpc|
+				ctpc.tbs_certificate = OpenSSL::ASN1.decode(eecert.to_der).value[0].to_der
+				ctpc.issuer_key_hash = Digest::SHA256.digest(chain[0].public_key.to_der)
+			end
 		elsif @env["PATH_INFO"] == "/add-chain"
 			entry_type = :x509_entry
-			eecert.to_der
+			eecert
 		else
 			raise RuntimeError,
 			      "Unknown PATH_INFO: '#{@env["PATH_INFO"]}'"
@@ -197,7 +196,11 @@ class CertificateTransparency::API::V1
 
 		#######################
 		# Catch repeat offenders
-		if sct = @dai.sct(signed_entry)
+		if sct = @dai.sct(
+		            signed_entry.respond_to?(:to_blob) ?
+		              signed_entry.to_blob :
+		              signed_entry.to_der
+		         )
 			status 200
 			json_response
 			return sct
@@ -206,33 +209,36 @@ class CertificateTransparency::API::V1
 		#######################
 		# Construct the SCT
 
-		ts = (Time.now.to_f*1000).to_i
-		ct = ::CertificateTransparency::CertificateTimestamp.new(
-		         :timestamp => ts,
-		         entry_type => signed_entry
-		       )
+		ts = Time.now
+		ct = ::CertificateTransparency::CertificateTimestamp.new do |ct|
+			ct.timestamp = ts
+			ct.__send__("#{entry_type}=".to_sym, signed_entry)
+		end
 
-		ds = ::TLS::DigitallySigned.new(:key => @key, :content => ct.encode)
+		ds = ::TLS::DigitallySigned.new(:key => @key, :content => ct.to_blob)
 
 		sct = {:sct_version => 0,
 		       :id          => @log_id.base64,
-		       :timestamp   => ts,
+		       :timestamp   => (ts.to_f*1000).to_i,
 		       :extensions  => "",
 		       :signature   => ds.encode.base64
 		      }.to_json
 
-		tse = ::CertificateTransparency::TimestampedEntry.new(
-					 :timestamp => ts,
-					 entry_type => signed_entry
-				  )
-		mtl = ::CertificateTransparency::MerkleTreeLeaf.new(
-					 :timestamped_entry => tse
-				  )
+		tse = ::CertificateTransparency::TimestampedEntry.new do |te|
+			te.timestamp = ts
+			te.__send__("#{entry_type}=".to_sym, signed_entry)
+		end
+		mtl = ::CertificateTransparency::MerkleTreeLeaf.new
+		mtl.timestamped_entry = tse
 
 		queue_entry = {
 		  :sct        => sct,
-		  :sct_hash   => Digest::SHA256.digest(signed_entry).base64,
-		  :leaf_input => mtl.encode.base64,
+		  :sct_hash   => Digest::SHA256.digest(
+		                   signed_entry.respond_to?(:to_blob) ?
+		                     signed_entry.to_blob :
+		                     signed_entry.to_der
+		                 ).base64,
+		  :leaf_input => mtl.to_blob.base64,
 		  :chain      => chain.map { |c| c.to_der.base64 }
 		}.to_json
 
@@ -308,9 +314,9 @@ class CertificateTransparency::API::V1
 		leaf = @dai[idx]
 
 		extras = leaf.chain.map do |c|
-			TLS::Opaque.new(2**24-1, :value => @dai.intermediate(c)).encode
+			TLS::Opaque.new(@dai.intermediate(c), 2**24-1).to_blob
 		end
-		extras = TLS::Opaque.new(2**24-1, :value => extras.join).encode
+		extras = TLS::Opaque.new(extras.join, 2**24-1).to_blob
 
 		status 200
 		json_response
@@ -350,9 +356,9 @@ class CertificateTransparency::API::V1
 			leaf = @dai[i]
 
 			extras = leaf.chain.map do |c|
-				TLS::Opaque.new(2**24-1, :value => @dai.intermediate(c)).encode
+				TLS::Opaque.new(@dai.intermediate(c), 2**24-1).to_blob
 			end
-			extras = TLS::Opaque.new(2**24-1, :value => extras.join).encode
+			extras = TLS::Opaque.new(extras.join, 2**24-1).to_blob
 
 			{
 			 :leaf_input => leaf.leaf_input.base64,
@@ -390,8 +396,10 @@ class CertificateTransparency::API::V1
 
 		leaf = @dai[idx]
 
-		extras = leaf.chain.map { |c| TLS::Opaque.new(2**24-1, :value => @dai.intermediate(c)).encode }
-		extras = TLS::Opaque.new(2**24-1, :value => extras.join).encode
+		extras = leaf.chain.map do |c|
+			TLS::Opaque.new(@dai.intermediate(c), 2**24-1).to_blob
+		end
+		extras = TLS::Opaque.new(extras.join, 2**24-1).to_blob
 
 		status 200
 		json_response
