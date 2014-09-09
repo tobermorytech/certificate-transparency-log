@@ -243,7 +243,7 @@ class CertificateTransparency::API::V1
 		}.to_json
 
 		begin
-			qfile = "#{@queue_dir}/#{ts}_#{rand(1000000)}_#{$$}.json"
+			qfile = "#{@queue_dir}/#{ts.to_f}_#{rand(1000000)}_#{$$}.json"
 			File.open(qfile, File::WRONLY|File::CREAT|File::EXCL) do |fd|
 				fd.write(queue_entry)
 				fd.fsync
