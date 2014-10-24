@@ -10,6 +10,7 @@ Spork.prefork do
 	require 'rack/test'
 	require 'rspec/mocks'
 	require 'webmock/rspec'
+	require 'logger'
 
 	require 'pry'
 #	require 'plymouth'
