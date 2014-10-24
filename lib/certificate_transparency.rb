@@ -27,7 +27,6 @@ end
 require_relative './certificate_transparency/certificate_timestamp'
 require_relative './certificate_transparency/dai'
 require_relative './certificate_transparency/hash_store'
-require_relative './certificate_transparency/helpers'
 require_relative './certificate_transparency/log_entry'
 require_relative './certificate_transparency/merkle_tree_leaf'
 require_relative './certificate_transparency/pre_cert'

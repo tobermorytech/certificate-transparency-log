@@ -20,8 +20,6 @@
 module CertificateTransparency; end
 
 class CertificateTransparency::TreeHeadSignature
-	include CertificateTransparency::Helpers
-
 	attr_reader :version, :signature_type, :timestamp, :tree_size,
 	            :sha256_root_hash
 
@@ -70,9 +68,9 @@ class CertificateTransparency::TreeHeadSignature
 		[@version,
 		 @signature_type,
 		 @timestamp,
-		 htonq(@tree_size),
-		 htonq(@sha256_root_hash)
-		].pack("CCQQa32")
+		 @tree_size,
+		 @sha256_root_hash
+		].pack("CCQ>Q>a32")
 	end
 
 	# Set the version on this TreeHeadSignature
@@ -131,12 +129,12 @@ class CertificateTransparency::TreeHeadSignature
 
 	private
 	def decode_blob(blob)
-		res = blob.unpack("CCQQa32")
+		res = blob.unpack("CCQ>Q>a32")
 
 		self.version = res[0]
 		self.signature_type = res[1]
-		self.timestamp = ntohq(res[2])
-		self.tree_size = ntohq(res[3])
+		self.timestamp = res[2]
+		self.tree_size = res[3]
 		self.sha256_root_hash = res[4]
 	end
 
