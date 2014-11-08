@@ -259,6 +259,7 @@ class CertificateTransparency::API::V1
 
 	def get_sth(params)
 		status 200
+		expire_at_rollover
 		json_response
 		@dai.signed_tree_head
 	end
@@ -287,6 +288,7 @@ class CertificateTransparency::API::V1
 		proof = @mht.consistency_proof(first, second).map { |h| h.base64 }
 
 		status 200
+		never_expire
 		json_response
 		{ :consistency => proof }.to_json
 	end
@@ -319,6 +321,7 @@ class CertificateTransparency::API::V1
 		extras = TLS::Opaque.new(extras.join, 2**24-1).to_blob
 
 		status 200
+		never_expire
 		json_response
 		{
 		 :leaf_index => idx,
@@ -368,11 +371,13 @@ class CertificateTransparency::API::V1
 
 		status 200
 		json_response
+		never_expire
 		{ :entries => entries }.to_json
 	end
 
 	def get_roots(params)
 		status 200
+		expire_at_rollover
 		json_response
 		"{\"certificates\":#{@dai.json_roots}}"
 	end
@@ -402,6 +407,7 @@ class CertificateTransparency::API::V1
 		extras = TLS::Opaque.new(extras.join, 2**24-1).to_blob
 
 		status 200
+		never_expire
 		json_response
 		{
 		 :leaf_input => leaf.leaf_input.base64,
@@ -412,13 +418,18 @@ class CertificateTransparency::API::V1
 
 	def set_header(h, v)
 		@headers ||= []
-		@headers.delete_if { |hdr| hdr[0] == h }
+		clear_header(h)
 		add_header(h, v)
 	end
 
 	def add_header(h, v)
 		@headers ||= []
 		@headers << [h, v]
+	end
+
+	def clear_header(h)
+		@headers ||= []
+		@headers.delete_if { |hdr| hdr[0] == h }
 	end
 
 	def status(n)
@@ -433,6 +444,17 @@ class CertificateTransparency::API::V1
 
 	def json_response
 		set_header "Content-Type", "application/json; charset=UTF-8"
+	end
+
+	def never_expire
+		# Well, not *never*... but almost a year should be enough for everyone
+		set_header "Expires", (Time.now+(360*86400)).httpdate
+		clear_header "Cache-Control"
+	end
+
+	def expire_at_rollover
+		set_header("Expires", Time.at(@dai.rollover_time).httpdate)
+		clear_header "Cache-Control"
 	end
 
 	# A validation to make any true PKIX lover cry... all we're doing

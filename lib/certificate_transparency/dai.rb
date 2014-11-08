@@ -52,6 +52,11 @@ class CertificateTransparency::DAI
 	############################
 	# Extensions
 
+	def rollover_time
+		update_vars
+		@rollover_time
+	end
+
 	# Look up an intermediate certificate from its hash (specified as a raw
 	# octet string), and return the certificate data as a DER-encoded string
 	def intermediate(hash)

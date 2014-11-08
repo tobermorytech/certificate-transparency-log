@@ -18,6 +18,12 @@ describe '/v1/get-sth' do
 		expect(response['Content-Type']).to eq("application/json; charset=UTF-8")
 	end
 
+	it "sets an expiry at the next DB rollover" do
+		expect(response["Expires"]).to_not be(nil)
+		expect(response["Expires"]).to match(/^[A-Z][a-z]{2}, \d{1,2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT$/)
+		expect(Time.parse(response["Expires"])).to eq(Time.at(0))
+	end
+
 	context "body" do
 		let(:body) do
 			JSON.parse(response.body)
