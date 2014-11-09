@@ -93,6 +93,18 @@ else
 end
 
 
+################################
+# Rollover/expiry timestamps
+
+if ENV['PROCESSING_INTERVAL']
+	GDBM.open(DBFILE, 0600, GDBM::WRITER) do |db|
+		db['rollover_time'] = (Time.now.to_i + ENV['PROCESSING_INTERVAL'].to_i).to_s
+		db['expiry_time'] = (Time.now.to_i + 2*ENV['PROCESSING_INTERVAL'].to_i).to_s
+		db["prev_tree_size"] = db["cur_tree_size"]
+	end
+end
+
+
 #############################################################################
 # Args are passed... now the fun begins.
 
@@ -198,6 +210,12 @@ content[:tree_head_signature] = sig
 
 [:tree_head_signature, :sha256_root_hash].each do |k|
 	content[k] = content[k].base64
+end
+
+begin
+	GDBM::open(DBFILE, 0600, GDBM::WRITER) { |db| db["prev_sth"] = db["cur_sth"] }
+rescue Errno::EAGAIN
+	retry
 end
 
 begin
