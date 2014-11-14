@@ -98,7 +98,7 @@ end
 
 if ENV['PROCESSING_INTERVAL']
 	GDBM.open(DBFILE, 0600, GDBM::WRITER) do |db|
-		db['rollover_time'] = (Time.now.to_i + ENV['PROCESSING_INTERVAL'].to_i).to_s
+		db['rollover_time'] = db['expiry_time']
 		db['expiry_time'] = (Time.now.to_i + 2*ENV['PROCESSING_INTERVAL'].to_i).to_s
 		db["prev_tree_size"] = db["cur_tree_size"]
 	end
