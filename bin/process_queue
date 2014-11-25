@@ -101,6 +101,7 @@ if ENV['PROCESSING_INTERVAL']
 		db['rollover_time'] = db['expiry_time']
 		db['expiry_time'] = (Time.now.to_i + 2*ENV['PROCESSING_INTERVAL'].to_i).to_s
 		db["prev_tree_size"] = db["cur_tree_size"]
+		db["prev_sth"] = db["cur_sth"]
 	end
 end
 
@@ -149,8 +150,8 @@ Dir["#{QUEUEDIR}/*.json"].sort.each do |qent|
 
 			hashed_chain = json['chain'].map { |c| Digest::SHA256.digest(c.unbase64).base64 }
 			db["le-#{size}"] = { :leaf_input => json['leaf_input'],
-										:chain      => hashed_chain
-									 }.to_json
+			                     :chain      => hashed_chain
+			                   }.to_json
 
 			le = CertificateTransparency::LogEntry.new(qdata)
 			# Yes, that leading "\0" is supposed to be in the hash data -- it's
@@ -210,12 +211,6 @@ content[:tree_head_signature] = sig
 
 [:tree_head_signature, :sha256_root_hash].each do |k|
 	content[k] = content[k].base64
-end
-
-begin
-	GDBM::open(DBFILE, 0600, GDBM::WRITER) { |db| db["prev_sth"] = db["cur_sth"] }
-rescue Errno::EAGAIN
-	retry
 end
 
 begin
