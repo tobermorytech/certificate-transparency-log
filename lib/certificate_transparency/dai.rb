@@ -25,6 +25,8 @@ class CertificateTransparency::DAI
 	############################
 	# Standard MHT DAI
 	def length
+		update_vars
+
 		@cur_length
 	end
 
