@@ -278,7 +278,7 @@ class CertificateTransparency::API::V1
 		if second < first
 			return error("first cannot be greater than second")
 		end
-		if second > @dai.length
+		if second > @dai.tree_size
 			return error("second out of range")
 		end
 		if first < 0
@@ -309,7 +309,7 @@ class CertificateTransparency::API::V1
 			return error("Entry for hash not found", 404)
 		end
 
-		if size > @dai.length
+		if size > @dai.tree_size
 			return error("tree_size out of range")
 		end
 
@@ -343,7 +343,7 @@ class CertificateTransparency::API::V1
 		if first > last
 			return error("start cannot be greater than end")
 		end
-		if last >= @dai.length
+		if last >= @dai.tree_size
 			return error("end out of range")
 		end
 		if first < 0
@@ -392,10 +392,10 @@ class CertificateTransparency::API::V1
 
 		idx = params['leaf_index'].to_i
 		size = params['tree_size'].to_i
-		if idx >= @dai.length
+		if idx >= @dai.tree_size
 			return error("leaf_index out of range")
 		end
-		if size > @dai.length
+		if size > @dai.tree_size
 			return error("tree_size out of range")
 		end
 

@@ -25,15 +25,11 @@ class CertificateTransparency::DAI
 	############################
 	# Standard MHT DAI
 	def length
-		raise DatabaseExpired if expired?
-
-		rolled_over? ? @cur_length : @prev_length
+		@cur_length
 	end
 
 	def [](n)
-		raise DatabaseExpired if expired?
-
-		# 'l' is for "Log Entry", it's good enough for me
+		# 'le' is for "Log Entry", it's good enough for me
 		key = "le-#{n}"
 
 		in_db do |db|
@@ -109,6 +105,12 @@ class CertificateTransparency::DAI
 		raise DatabaseExpired if expired?
 
 		rolled_over? ? @cur_sth : @prev_sth
+	end
+
+	def tree_size
+		raise DatabaseExpired if expired?
+
+		rolled_over? ? @cur_length : @prev_length
 	end
 
 	private
