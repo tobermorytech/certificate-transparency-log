@@ -15,7 +15,7 @@ diskspace to store all of the certificates you're going to get.
 To get your local development environment up to snuff (install all the gems
 you need), run:
 
-    bundle install --without deployment
+    bundle install --deployment --without test
 
 Load up the database schema in your dev environment:
 
