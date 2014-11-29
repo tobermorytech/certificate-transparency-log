@@ -39,7 +39,7 @@ class CertificateTransparency::PreCert
 
 	def to_blob
 		[@issuer_key_hash,
-		 TLS::Opaque.new(@tbs_certificate, 2**16-1).to_blob
+		 TLS::Opaque.new(@tbs_certificate, 2**24-1).to_blob
 		].pack("a32a*")
 	end
 end
