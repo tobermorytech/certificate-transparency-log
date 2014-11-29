@@ -119,7 +119,7 @@ class CertificateTransparency::TimestampedEntry
 		signed_entry = if @x509_entry
 			TLS::Opaque.new(@x509_entry.to_der, 2**24-1).to_blob
 		elsif @precert_entry
-			TLS::Opaque.new(@precert_entry.to_blob, 2**24-1).to_blob
+			@precert_entry.to_blob
 		else
 			raise RuntimeError,
 			      "You must call #precert_entry= or #x509_entry= before calling #to_blob"
