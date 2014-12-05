@@ -1,29 +1,31 @@
 # An implementation of the TLS 1.2 (RFC5246) "variable length" opaque type.
 #
-# You can create an instance of this type by passing in either content (to be
-# encoded) like this:
+# You can create an instance of this type by passing in a stringish to be
+# encoded, and a "maximum length", like this:
 #
-#    TLS::Opaque.new(2**16-1, :value => "Hello World")
+#    TLS::Opaque.new("Hello World", 2**16-1)
 #
-# or an already-encoded blob (to be decoded), like this:
+# If you have a TLS::Opaque-encoded blob, and you'd like to get the
+# content out of it, you can use `.from_blob` to create a TLS::Opaque object
+# that will contain the data you seek:
 #
-#    TLS::Opaque.new(2**16-1, :blob => "\x00\x0BHello World")
+#    TLS::Opaque.from_blob("\x00\x0BHello World", 2**16-1)
 #
-# In both cases, you need to let us know how what the maximum length of the
-# `value` can be, because that is what determines how many bytes the length
-# field takes up at the beginning of the string.
+# In both cases, you need to specify what the maximum length of the `value`
+# can be, because that is what determines how many bytes the length field
+# takes up at the beginning of the string.
 #
-# To get the encoded value out, call `#encode`:
+# To get the "encoded" form,, call `#to_blob`:
 #
-#    TLS::Opaque.new(255, :value => "Hello World").encode
+#    TLS::Opaque.new("Hello World", 255).to_blob
 #    => "\x0BHello World"
 #
-# Or, to get the value out, call `#value`:
+# Or, to get the string itself out, call `#value`:
 #
-#    TLS::Opaque.new(255, :blob => "\x0BHello World").value
+#    TLS::Opaque.from_blob("\x0BHello World", 255)[0].value
 #    => "Hello World"
 #
-# Passing in a :value or :blob which is longer than the maximum length
+# Passing in a value or blob which is longer than the maximum length
 # specified will result in `ArgumentError` being thrown.
 #
 class TLS::Opaque
@@ -92,7 +94,7 @@ class TLS::Opaque
 
 		params << value
 
-		@encode = params.pack("C#{self.class.lenlen(@maxlen)}a*")
+		params.pack("C#{self.class.lenlen(@maxlen)}a*")
 	end
 
 	private
