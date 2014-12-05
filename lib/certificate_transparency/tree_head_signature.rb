@@ -91,7 +91,7 @@ class CertificateTransparency::TreeHeadSignature
 		end
 
 		if t.is_a? Time
-			t = (Time.to_f * 1000).to_i
+			t = (Time.to_f * 1000).round
 		end
 
 		@timestamp = t

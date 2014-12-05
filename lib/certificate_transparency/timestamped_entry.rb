@@ -125,8 +125,8 @@ class CertificateTransparency::TimestampedEntry
 			      "You must call #precert_entry= or #x509_entry= before calling #to_blob"
 		end
 
-		ts_hi = (@timestamp.to_f*1000).to_i / 2**32
-		ts_lo = (@timestamp.to_f*1000).to_i % 2**32
+		ts_hi = (@timestamp.to_f*1000).round / 2**32
+		ts_lo = (@timestamp.to_f*1000).round % 2**32
 		[ts_hi, ts_lo,
 		 CertificateTransparency::LogEntryType[entry_type],
 		 signed_entry, 0

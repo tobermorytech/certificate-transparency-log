@@ -18,7 +18,7 @@ class CertificateTransparency::CertificateTimestamp
 	end
 
 	def timestamp=(ts)
-		@timestamp = (ts.to_f*1000).to_i
+		@timestamp = (ts.to_f*1000).round
 	end
 
 	def to_blob
