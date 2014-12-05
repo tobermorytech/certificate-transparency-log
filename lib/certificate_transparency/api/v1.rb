@@ -221,7 +221,7 @@ class CertificateTransparency::API::V1
 		       :id          => @log_id.base64,
 		       :timestamp   => (ts.to_f*1000).to_i,
 		       :extensions  => "",
-		       :signature   => ds.encode.base64
+		       :signature   => ds.to_blob.base64
 		      }.to_json
 
 		tse = ::CertificateTransparency::TimestampedEntry.new do |te|

@@ -70,7 +70,7 @@ class TLS::DigitallySigned
 	# Return a binary string which represents a `DigitallySigned` struct of
 	# the content passed in.
 	#
-	def encode
+	def to_blob
 		@blob ||= begin
 			@sig = @key.sign(OpenSSL::Digest::SHA256.new, @content)
 

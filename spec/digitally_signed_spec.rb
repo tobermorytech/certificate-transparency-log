@@ -31,12 +31,12 @@ describe "DigitallySigned" do
 		end
 	end
 
-	context "#encode" do
+	context "#to_blob" do
 		let(:ds) { DS.new(:key => privkey, :content => "xyzzy") }
-		let(:packet) { ds.encode.unpack("CCna*") }
+		let(:packet) { ds.to_blob.unpack("CCna*") }
 
 		it "returns a binary string" do
-			expect(ds.encode.encoding.to_s).to eq("ASCII-8BIT")
+			expect(ds.to_blob.encoding.to_s).to eq("ASCII-8BIT")
 		end
 
 		it "sets the hash algorithm correctly" do
@@ -54,7 +54,7 @@ describe "DigitallySigned" do
 
 	context "#valid?" do
 		let(:sig) do
-			DS.new(:key => privkey, :content => "xyzzy").encode
+			DS.new(:key => privkey, :content => "xyzzy").to_blob
 		end
 
 		it "validates a correct signature" do
