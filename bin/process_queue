@@ -158,7 +158,7 @@ Dir["#{QUEUEDIR}/*.json"].sort.each do |qent|
 			# part of the spec for what a "leaf hash" is defined to be.  Thinking
 			# that couldn't *possibly* be right, I checked it against what the
 			# Google pilot/aviator servers do, and lo!  it's exactly how it works.
-			lh = Digest::SHA256.digest("\0" + le.leaf_input.encode)
+			lh = Digest::SHA256.digest("\0" + le.leaf_input.to_blob)
 			db["lh-#{lh}"] = size.to_s
 
 			size += 1

@@ -410,7 +410,7 @@ class CertificateTransparency::API::V1
 		never_expire
 		json_response
 		{
-		 :leaf_input => leaf.leaf_input.base64,
+		 :leaf_input => leaf.leaf_input.to_blob.base64,
 		 :extra_data => extras.base64,
 		 :audit_path => @mht.audit_proof(idx, 0..size-1).map { |h| h.base64 }
 		}.to_json
