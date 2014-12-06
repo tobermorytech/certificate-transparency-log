@@ -222,6 +222,8 @@ content[:tree_head_signature] = sig
 	content[k] = content[k].base64
 end
 
+content[:timestamp] = content[:timestamp].to_ms
+
 begin
 	GDBM::open(DBFILE, 0600, GDBM::WRITER) { |db| db["cur_sth"] = content.to_json }
 rescue Errno::EAGAIN
