@@ -48,10 +48,14 @@ unless File.exists? DBFILE
 	# New DB file needs a few values seeded, or else the DAI will have a
 	# conniption when it tries to use the DB.  These values are only really
 	# interesting when the system is being used in master/slave mode.
-	GDBM.open(DBFILE, 0600, GDBM::WRITER|GDBM::WRCREAT) do |db|
-		db['rollover_time'] = "0"
-		db['expiry_time']   = (2**64-1).to_s
-		db['cur_tree_size'] = "0"
+	begin
+		GDBM.open(DBFILE, 0600, GDBM::WRITER|GDBM::WRCREAT) do |db|
+			db['rollover_time'] = "0"
+			db['expiry_time']   = (2**64-1).to_s
+			db['cur_tree_size'] = "0"
+		end
+	rescue Errno::EAGAIN
+		retry
 	end
 end
 
@@ -98,11 +102,15 @@ end
 # Rollover/expiry timestamps
 
 if ENV['PROCESSING_INTERVAL']
-	GDBM.open(DBFILE, 0600, GDBM::WRITER) do |db|
-		db['rollover_time'] = db['expiry_time']
-		db['expiry_time'] = (Time.now.to_i + 2*ENV['PROCESSING_INTERVAL'].to_i).to_s
-		db["prev_tree_size"] = db["cur_tree_size"]
-		db["prev_sth"] = db["cur_sth"]
+	begin
+		GDBM.open(DBFILE, 0600, GDBM::WRITER) do |db|
+			db['rollover_time'] = db['expiry_time']
+			db['expiry_time'] = (Time.now.to_i + 2*ENV['PROCESSING_INTERVAL'].to_i).to_s
+			db["prev_tree_size"] = db["cur_tree_size"]
+			db["prev_sth"] = db["cur_sth"]
+		end
+	rescue Errno::EAGAIN
+		retry
 	end
 end
 
