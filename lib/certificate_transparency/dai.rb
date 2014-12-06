@@ -154,6 +154,7 @@ class CertificateTransparency::DAI
 		begin
 			GDBM.open(@dbfile, 0600, GDBM::READER) { |db| yield db }
 		rescue Errno::EAGAIN
+			sleep 0.1
 			retry
 		end
 	end

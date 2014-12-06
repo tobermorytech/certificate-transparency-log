@@ -55,6 +55,7 @@ unless File.exists? DBFILE
 			db['cur_tree_size'] = "0"
 		end
 	rescue Errno::EAGAIN
+		sleep 0.1
 		retry
 	end
 end
@@ -110,6 +111,7 @@ if ENV['PROCESSING_INTERVAL']
 			db["prev_sth"] = db["cur_sth"]
 		end
 	rescue Errno::EAGAIN
+		sleep 0.1
 		retry
 	end
 end
@@ -176,6 +178,7 @@ Dir["#{QUEUEDIR}/*.json"].sort.each do |qent|
 			db["cur_tree_size"] = (size + 1).to_s
 		end
 	rescue Errno::EAGAIN
+		sleep 0.1
 		retry
 	end
 
@@ -190,6 +193,7 @@ mht = MerkleHashTree.new(dai, Digest::SHA256)
 begin
 	tree_size = GDBM.open(DBFILE, 0600, GDBM::READER) { |db| db["cur_tree_size"].to_i }
 rescue Errno::EAGAIN
+	sleep 0.1
 	retry
 end
 
@@ -220,5 +224,6 @@ content[:timestamp] = content[:timestamp].to_ms
 begin
 	GDBM::open(DBFILE, 0600, GDBM::WRITER) { |db| db["cur_sth"] = content.to_json }
 rescue Errno::EAGAIN
+	sleep 0.1
 	retry
 end
