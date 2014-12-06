@@ -239,14 +239,17 @@ class CertificateTransparency::API::V1
 		                     signed_entry.to_der
 		                 ).base64,
 		  :leaf_input => mtl.to_blob.base64,
-		  :chain      => chain.map { |c| c.to_der.base64 },
-		  :precert    => entry_type == :precert_entry ? eecert.to_der.base64 : nil
-		}.to_json
+		  :chain      => chain.map { |c| c.to_der.base64 }
+		}
+
+		if entry_type == :precert_entry
+			queue_entry[:precert] = eecert.to_der.base64
+		end
 
 		begin
 			qfile = "#{@queue_dir}/#{ts.to_f}_#{rand(1000000)}_#{$$}.json"
 			File.open(qfile, File::WRONLY|File::CREAT|File::EXCL) do |fd|
-				fd.write(queue_entry)
+				fd.write(queue_entry.to_json)
 				fd.fsync
 			end
 		rescue Errno::EEXIST
