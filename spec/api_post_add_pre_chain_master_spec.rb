@@ -120,16 +120,15 @@ describe 'POST /v1/add-pre-chain' do
 				tbs = OpenSSL::ASN1.decode(cert.unbase64).value[0].to_der
 				issuer_key = OpenSSL::X509::Certificate.new(inter.unbase64).public_key.to_der
 				ikh = Digest::SHA256.digest(issuer_key)
-				precert = [ikh, tbs.length, tbs].pack("a*na*")
+				precert = [ikh, tbs.length/256, tbs.length%256, tbs].pack("a*nCa*")
 				ct = [0,0,                       # sct_version, signature_type
-				      body['timestamp']/2**32,   # timestamp_hi
-				      body['timestamp']%2**32,   # timestamp_lo
+				      body['timestamp'],         # timestamp
 				      1,                         # entry_type
 				      precert.length/256,        # precert_entry_len_hi
 				      precert.length%256,        # precert_entry_len_lo
 				      precert,                   # cert
 				      0                          # extensions length
-				     ].pack("CCNNnnCa*n")
+				     ].pack("CCQ>nnCa*n")
 
 				expect(pubkey.verify(OpenSSL::Digest::SHA256.new, sig, ct)).
 				  to eq(true)
@@ -154,12 +153,20 @@ describe 'POST /v1/add-pre-chain' do
 			end
 
 			it "has vaguely correct-looking leaf_input data" do
-				expect(qents[0]['leaf_input']).to match(%r{^[A-Za-z+/=]+})
+				expect(qents[0]['leaf_input']).to match(%r{^[A-Za-z0-9+/=]+$})
 			end
 
 			it "has the right chain" do
 				expect(qents[0]['chain']).
 				  to eq([inter, root])
+			end
+
+			it "has a precert" do
+				expect(qents[0]).to have_key('precert')
+			end
+
+			it "has a good looking precert" do
+				expect(qents[0]['precert']).to match(%r{^[A-Za-z0-9+/=]+$})
 			end
 		end
 	end

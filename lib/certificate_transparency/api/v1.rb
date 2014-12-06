@@ -239,7 +239,8 @@ class CertificateTransparency::API::V1
 		                     signed_entry.to_der
 		                 ).base64,
 		  :leaf_input => mtl.to_blob.base64,
-		  :chain      => chain.map { |c| c.to_der.base64 }
+		  :chain      => chain.map { |c| c.to_der.base64 },
+		  :precert    => entry_type == :precert_entry ? eecert.to_der.base64 : nil
 		}.to_json
 
 		begin
@@ -356,15 +357,25 @@ class CertificateTransparency::API::V1
 		end
 
 		entries = (first..last).to_a.map do |i|
-			leaf = @dai[i]
+			log_entry = @dai[i]
 
-			extras = leaf.chain.map do |c|
+			chain = log_entry.chain.map do |c|
 				TLS::Opaque.new(@dai.intermediate(c), 2**24-1).to_blob
 			end
-			extras = TLS::Opaque.new(extras.join, 2**24-1).to_blob
+			chain = TLS::Opaque.new(chain.join, 2**24-1).to_blob
+
+			extras = case log_entry.leaf_input.timestamped_entry.entry_type
+			when :x509_entry
+				chain
+			when :precert_entry
+				TLS::Opaque.new(log_entry.precert.to_der, 2**24-1).to_blob + chain
+			else
+				raise RuntimeError,
+				      "Unknown entry_type: #{log_entry.leaf_input.timestamped_entry.entry_type}"
+			end
 
 			{
-			 :leaf_input => leaf.leaf_input.to_blob.base64,
+			 :leaf_input => log_entry.leaf_input.to_blob.base64,
 			 :extra_data => extras.base64
 			}
 		end

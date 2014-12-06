@@ -141,6 +141,12 @@ end
 Dir["#{QUEUEDIR}/*.json"].sort.each do |qent|
 	qdata = File.read(qent)
 	json = JSON.parse(qdata)
+	le = CertificateTransparency::LogEntry.new(qdata)
+	# The chain in qdata is the actual intermediate certificates; for
+	# conservation of space, we just record their hashes in the database so
+	# we can find them again later if required
+	le.chain.map! { |c| Digest::SHA256.digest(c) }
+
 	begin
 		GDBM.open(DBFILE, 0600, GDBM::WRITER) do |db|
 			size = db['cur_tree_size'].to_i
@@ -152,35 +158,22 @@ Dir["#{QUEUEDIR}/*.json"].sort.each do |qent|
 			# to be the one we'll send *again* if anyone sends us the same cert
 			# yet again.  Thus, we only store an SCT for a cert if the DB doesn't
 			# already have an SCT for this cert.
-			sct_key = "sct-#{json['sct_hash'].unbase64}"
-			if db[sct_key].nil?
-				db["sct-" + json['sct_hash'].unbase64] = json['sct']
+			db["sct-#{json['sct_hash'].unbase64}"] ||= json['sct']
+
+			db["le-#{size}"] = le.to_json
+
+			# We need to make sure all the intermediates are in the DB
+			json['chain'].each do |intermediate|
+				i = intermediate.unbase64
+				db["i-#{Digest::SHA256.digest(i)}"] ||= i
 			end
 
-			hashed_chain = json['chain'].map { |c| Digest::SHA256.digest(c.unbase64).base64 }
-			db["le-#{size}"] = { :leaf_input => json['leaf_input'],
-			                     :chain      => hashed_chain
-			                   }.to_json
-
-			le = CertificateTransparency::LogEntry.new(qdata)
 			# Yes, that leading "\0" is supposed to be in the hash data -- it's
-			# part of the spec for what a "leaf hash" is defined to be.  Thinking
-			# that couldn't *possibly* be right, I checked it against what the
-			# Google pilot/aviator servers do, and lo!  it's exactly how it works.
+			# part of the spec for what a "leaf hash" is defined to be.
 			lh = Digest::SHA256.digest("\0" + le.leaf_input.to_blob)
 			db["lh-#{lh}"] = size.to_s
 
-			size += 1
-			db["cur_tree_size"] = size.to_s
-
-			# *And* we need to make sure all the intermediates are in the DB
-			json['chain'].each do |intermediate|
-				i = intermediate.unbase64
-				ihash = Digest::SHA256.digest(i)
-				if db["i-#{ihash}"].nil?
-					db["i-#{ihash}"] = i
-				end
-			end
+			db["cur_tree_size"] = (size + 1).to_s
 		end
 	rescue Errno::EAGAIN
 		retry

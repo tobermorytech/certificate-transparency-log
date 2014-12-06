@@ -36,7 +36,7 @@ describe '/v1/get-sth' do
 		end
 
 		it "has the right tree size" do
-			expect(body['tree_size']).to eq(16)
+			expect(body['tree_size']).to eq(17)
 		end
 
 		it "has a timestamp" do
@@ -44,17 +44,17 @@ describe '/v1/get-sth' do
 		end
 
 		it "has the right root hash" do
-			expect(body['sha256_root_hash']).to eq('+hsLiK49nc47AIdF+6ixq5wSB/aWjPRZuUEADzQIEcI=')
+			expect(body['sha256_root_hash']).to eq('xcIUGJaGDkBjY6NWkXvvXMHDrR3474FegvJxfWhSN/U=')
 		end
 
 		let(:ths) { body['tree_head_signature'].unbase64.unpack("CCna*") }
 
 		it "has the right signature algorithm" do
-			expect(ths[0]).to eq(3)
+			expect(ths[0]).to eq(4)
 		end
 
 		it "has the right hash algorithm" do
-			expect(ths[1]).to eq(4)
+			expect(ths[1]).to eq(3)
 		end
 
 		it "has the right length" do
