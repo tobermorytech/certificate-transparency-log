@@ -7,7 +7,7 @@ class CertificateTransparency::LogEntry
 			@leaf_input = CertificateTransparency::MerkleTreeLeaf.from_blob((data['leaf_input'] || "").unbase64)
 			@chain      = (data['chain'] || []).map { |h| h.unbase64 }
 			if data.has_key? 'precert'
-				@precert    = OpenSSL::X509::Certificate.new((data['precert']).unbase64)
+				@precert    = OpenSSL::X509::Certificate.new(data['precert'].unbase64)
 			end
 		end
 	end
