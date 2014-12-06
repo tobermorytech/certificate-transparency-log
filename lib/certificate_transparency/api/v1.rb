@@ -219,7 +219,7 @@ class CertificateTransparency::API::V1
 
 		sct = {:sct_version => 0,
 		       :id          => @log_id.base64,
-		       :timestamp   => (ts.to_f*1000).round,
+		       :timestamp   => ts.to_ms,
 		       :extensions  => "",
 		       :signature   => ds.to_blob.base64
 		      }.to_json

@@ -1,3 +1,6 @@
+require 'certificate_transparency'
+require 'time_extension'
+
 # An RFC6962 TimestampedEntry structure
 #
 # Use ::from_blob(blob) if you have an encoded TE you wish to decode,
@@ -22,11 +25,10 @@ class CertificateTransparency::TimestampedEntry
 	attr_reader :precert_entry
 
 	def self.from_blob(blob)
-		ts_hi, ts_lo, entry_type, rest = blob.unpack("NNna*")
-		ts = ts_hi * 2**32 + ts_lo
+		ts, entry_type, rest = blob.unpack("Q>na*")
 
 		self.new do |te|
-			te.timestamp = Time.at(ts / 1000.0)
+			te.timestamp = Time.from_ms(ts)
 
 			case CertificateTransparency::LogEntryType.invert[entry_type]
 			when :x509_entry
@@ -125,11 +127,9 @@ class CertificateTransparency::TimestampedEntry
 			      "You must call #precert_entry= or #x509_entry= before calling #to_blob"
 		end
 
-		ts_hi = (@timestamp.to_f*1000).round / 2**32
-		ts_lo = (@timestamp.to_f*1000).round % 2**32
-		[ts_hi, ts_lo,
+		[@timestamp.to_ms,
 		 CertificateTransparency::LogEntryType[entry_type],
 		 signed_entry, 0
-		].pack("NNna*n")
+		].pack("Q>na*n")
 	end
 end

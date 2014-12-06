@@ -9,6 +9,7 @@ require 'digest/sha2'
 require 'gdbm'
 require 'json'
 require 'string_extension'
+require 'time_extension'
 require 'openssl'
 require 'certificate_transparency'
 require 'merkle-hash-tree'
@@ -192,7 +193,7 @@ rescue Errno::EAGAIN
 end
 
 content = { :tree_size => tree_size,
-            :timestamp => (Time.now.to_f * 1000).to_i,
+            :timestamp => Time.now.to_ms,
             :sha256_root_hash => mht.head
           }
 

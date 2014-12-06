@@ -1,3 +1,6 @@
+require 'certificate_transparency'
+require 'time_extension'
+
 # Implement the TreeHeadSignature structure as defined by RFC6962, s3.5.
 #
 # Instances of this class are populated by specifying either a string "blob"
@@ -85,16 +88,12 @@ class CertificateTransparency::TreeHeadSignature
 
 	# Set the timestamp on this TreeHeadSignature
 	def timestamp=(t)
-		unless t.is_a? Time or t.is_a? Integer
+		unless t.is_a? Time or t.respond_to?(:to_time)
 			raise ArgumentError,
-			      "Can only set timestamp to a Time or integer"
+			      "Can only set timestamp to a Time or time-like object"
 		end
 
-		if t.is_a? Time
-			t = (Time.to_f * 1000).round
-		end
-
-		@timestamp = t
+		@timestamp = t.is_a?(Time) ? t : t.to_time
 	end
 
 	# Set the tree size on this TreeHeadSignature

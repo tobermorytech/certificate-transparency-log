@@ -232,14 +232,13 @@ describe 'POST /v1/add-chain' do
 				sig = body['signature'].unbase64[4..-1]  # Skip the DigitallySigned gibberish
 				der = inter.unbase64
 				ct = [0, 0,                      # sct_version, signature_type
-				      body['timestamp']/2**32,   # timestamp_hi
-				      body['timestamp']%2**32,   # timestamp_lo
+				      body['timestamp'],         # timestamp
 				      0,                         # entry_type
 				      der.length/256,            # x509_entry_len_hi
 				      der.length%256,            # x509_entry_len_lo
 				      der,                       # cert
 				      0                          # extensions length
-				     ].pack("CCNNnnCa*n")
+				     ].pack("CCQ>nnCa*n")
 				v = pubkey.verify(OpenSSL::Digest::SHA256.new, sig, ct)
 				expect(v).to be(true)
 			end
@@ -313,14 +312,13 @@ describe 'POST /v1/add-chain' do
 				sig = body['signature'].unbase64[4..-1]  # Skip the DigitallySigned gibberish
 				der = cert.unbase64
 				ct = [0,0,                       # sct_version, signature_type
-				      body['timestamp']/2**32,   # timestamp_hi
-				      body['timestamp']%2**32,   # timestamp_lo
+				      body['timestamp'],         # timestamp
 				      0,                         # entry_type
 				      der.length/256,            # x509_entry_len_hi
 				      der.length%256,            # x509_entry_len_lo
 				      der,                       # cert
 				      0                          # extensions length
-				     ].pack("CCNNnnCa*n")
+				     ].pack("CCQ>nnCa*n")
 				v = pubkey.verify(OpenSSL::Digest::SHA256.new, sig, ct)
 				expect(v).to be(true)
 			end
