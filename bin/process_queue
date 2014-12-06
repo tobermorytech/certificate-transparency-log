@@ -193,7 +193,7 @@ rescue Errno::EAGAIN
 end
 
 content = { :tree_size => tree_size,
-            :timestamp => Time.now.to_ms,
+            :timestamp => Time.now,
             :sha256_root_hash => mht.head
           }
 
