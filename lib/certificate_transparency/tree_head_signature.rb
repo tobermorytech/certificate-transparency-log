@@ -20,9 +20,19 @@ require 'time_extension'
 #     puts "Version is #{ths.version}"
 #     puts "Tree size is #{tbs.tree_size}"
 #
-module CertificateTransparency; end
-
 class CertificateTransparency::TreeHeadSignature
+	def self.from_blob(blob)
+		res = blob.unpack("CCQ>Q>a32")
+
+		self.new(
+		  :version          => res[0],
+		  :signature_type   => res[1],
+		  :timestamp        => Time.from_ms(res[2]),
+		  :tree_size        => res[3],
+		  :sha256_root_hash => res[4]
+		)
+	end
+
 	attr_reader :version, :signature_type, :timestamp, :tree_size,
 	            :sha256_root_hash
 
@@ -38,15 +48,18 @@ class CertificateTransparency::TreeHeadSignature
 	#   the provided string cannot be decoded, or if an unknown struct
 	#   element is specified in the hash.
 	#
-	def initialize(blob_or_opts)
-		@signature_type = ::CertificateTransparency::SignatureType[:tree_hash]
+	def initialize(opts={})
+		[:version, :signature_type, :timestamp, :tree_size, :sha256_root_hash].each do |k|
+			if opts.has_key?(k)
+				__send__("#{k}=".to_sym, opts.delete(k))
+			end
+		end
 
-		case blob_or_opts
-		when String then decode_blob(blob_or_opts)
-		when Hash then set_elements(blob_or_opts)
-		else
+		@signature_type = CertificateTransparency::SignatureType[:tree_hash]
+
+		unless opts.empty?
 			raise ArgumentError,
-			      "Unknown type given to #initialize (you gave me a #{blob_or_opts.class}, but I want either a String or a Hash"
+			      "Unknown struct elements passed: #{opts.keys.inspect}"
 		end
 	end
 
@@ -55,9 +68,9 @@ class CertificateTransparency::TreeHeadSignature
 	# Returns a binary string with the encoded contents of this object, as
 	# defined by RFC6962.  Will raise a `RuntimeError` if any parameters are
 	# missing (haven't been defined).
-	def encode
+	def to_blob
 		missing = []
-		[:version, :timestamp, :tree_size, :sha256_root_hash].each do |e|
+		[:version, :signature_type, :timestamp, :tree_size, :sha256_root_hash].each do |e|
 			if instance_variable_get("@#{e}".to_sym).nil?
 				missing << e
 			end
@@ -70,7 +83,7 @@ class CertificateTransparency::TreeHeadSignature
 
 		[@version,
 		 @signature_type,
-		 @timestamp,
+		 @timestamp.to_ms,
 		 @tree_size,
 		 @sha256_root_hash
 		].pack("CCQ>Q>a32")
@@ -124,30 +137,5 @@ class CertificateTransparency::TreeHeadSignature
 		end
 
 		@sha256_root_hash = h
-	end
-
-	private
-	def decode_blob(blob)
-		res = blob.unpack("CCQ>Q>a32")
-
-		self.version = res[0]
-		self.signature_type = res[1]
-		self.timestamp = res[2]
-		self.tree_size = res[3]
-		self.sha256_root_hash = res[4]
-	end
-
-	def set_elements(opts)
-		opts = opts.dup
-		[:version, :timestamp, :tree_size, :sha256_root_hash].each do |k|
-			if opts.has_key?(k)
-				__send__("#{k}=".to_sym, opts.delete(k))
-			end
-		end
-
-		unless opts.empty?
-			raise ArgumentError,
-			      "Unknown struct elements passed: #{opts.keys.inspect}"
-		end
 	end
 end

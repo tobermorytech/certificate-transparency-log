@@ -213,7 +213,7 @@ ths = ::CertificateTransparency::TreeHeadSignature.new(
 
 sig = ::TLS::DigitallySigned.new(
 			 :key     => PRIVATE_KEY,
-			 :content => ths.encode
+			 :content => ths.to_blob
 		  ).to_blob
 
 content[:tree_head_signature] = sig
