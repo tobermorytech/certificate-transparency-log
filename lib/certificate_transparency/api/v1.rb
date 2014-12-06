@@ -364,7 +364,7 @@ class CertificateTransparency::API::V1
 			extras = TLS::Opaque.new(extras.join, 2**24-1).to_blob
 
 			{
-			 :leaf_input => leaf.leaf_input.base64,
+			 :leaf_input => leaf.leaf_input.to_blob.base64,
 			 :extra_data => extras.base64
 			}
 		end
